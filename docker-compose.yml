@@ -1,0 +1,49 @@
+version: "3"
+
+services:
+  #######################################
+  # Log concentrator (rsyslog)
+  #######################################
+  rsyslog:
+    build:
+      context: ./dockerfiles/rsyslog
+    image: "ncarlier/rsyslog:latest"
+    ports:
+      - "${RSYSLOG_PORT:-5555}:514"
+    volumes:
+      - logs-data:/var/log
+
+  #######################################
+  # NGINX
+  #######################################
+  nginx:
+    image: "nginx:latest"
+    restart: always
+    depends_on:
+      - rsyslog
+    ports:
+      - "${PORT:-80}:80"
+    volumes:
+      - reports-data:/usr/share/nginx/html/reports:ro
+    logging:
+      driver: syslog
+      options:
+        tag: nginx
+        syslog-address: "tcp://172.17.0.1:5555"
+
+  #######################################
+  # GoAccess
+  #######################################
+  goaccess:
+    build:
+      context: ./dockerfiles/goaccess
+    image: "ncarlier/goaccess:latest"
+    depends_on:
+      - nginx
+    volumes:
+      - logs-data:/srv/logs:ro
+      - reports-data:/srv/reports:rw
+
+volumes:
+  logs-data:
+  reports-data:
